@@ -1,6 +1,9 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
+import io
+import sys
+from contextlib import redirect_stdout
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
@@ -57,6 +60,18 @@ if st.button("코드 분석 및 디버깅 시작하기", type="primary"):
                 explanation_result = explanation_chain.invoke({"code": code_input})
                 debugging_result = debugging_chain.invoke({"code": code_input})
 
+                # 3. 실제 파이썬 코드 실행 (출력 결과 캡처)
+                execution_result = ""
+                try:
+                    f = io.StringIO()
+                    with redirect_stdout(f):
+                        exec(code_input, {})
+                    execution_result = f.getvalue()
+                    if not execution_result:
+                        execution_result = "실행이 완료되었으나 출력된 내용이 없습니다."
+                except Exception as ex:
+                    execution_result = f"실행 중 오류 발생:\n{type(ex).__name__}: {ex}"
+
                 # 결과 화면 출력
                 st.divider()
                 st.subheader("📖 코드가 무슨 뜻인가요?")
@@ -65,6 +80,13 @@ if st.button("코드 분석 및 디버깅 시작하기", type="primary"):
                 st.divider()
                 st.subheader("🔍 프로그램은 어떻게 실행되나요? (단계별 디버깅)")
                 st.success(debugging_result.content)
+
+                st.divider()
+                st.subheader("▶️ 실제 프로그램 실행 결과")
+                if "실행 중 오류 발생" in execution_result:
+                    st.error(execution_result)
+                else:
+                    st.code(execution_result, language="text")
 
             except Exception as e:
                 st.error(f"오류가 발생했습니다. API 키가 제대로 설정되었는지, 인터넷 연결이 정상인지 확인해 주세요.\n\n상세 오류: {e}")
